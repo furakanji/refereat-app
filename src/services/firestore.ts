@@ -204,5 +204,42 @@ export async function acceptInvite(inviteId: string, userData: { name: string, e
     }
 }
 
+// --- Referrals ---
+
+export async function createReferralBooking(data: { influencerId: string, guestName: string, date: string, guests: number, phone: string }) {
+    try {
+        const docRef = await addDoc(collection(db, "referral_bookings"), {
+            ...data,
+            status: "pending_visit",
+            createdAt: Timestamp.now()
+        });
+        return docRef.id;
+    } catch (e) {
+        console.error("Error creating referral booking:", e);
+        throw e;
+    }
+}
+
+export async function findReferral(guestName: string) {
+    // Simple verification: partial match on name (case insensitive for a real app, but exact for now)
+    // In production, we'd use Algolia or more complex queries.
+    // Here we just look for a pending referral with the same guest name.
+
+    const q = query(
+        collection(db, "referral_bookings"),
+        where("guestName", "==", guestName),
+        where("status", "==", "pending_visit")
+    );
+
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+        // Return the first match
+        const doc = querySnapshot.docs[0];
+        return { id: doc.id, ...doc.data() } as any;
+    }
+    return null;
+}
+
+
 
 

@@ -1,13 +1,12 @@
-"use client"
-
 import { useState, useEffect } from "react"
-import { Upload, FileText, Loader2, CheckCircle, AlertCircle, User } from "lucide-react"
+import { Loader2, Upload, FileText, CheckCircle, AlertCircle, User, Check, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createBooking, getInfluencers } from "@/services/firestore"
+import { Badge } from "@/components/ui/badge"
+import { createBooking, getInfluencers, findReferral } from "@/services/firestore"
 import type { Influencer } from "@/types/firestore"
 
 export function VerificationUpload() {
@@ -16,9 +15,12 @@ export function VerificationUpload() {
     const [analyzing, setAnalyzing] = useState(false)
     const [result, setResult] = useState<any>(null)
     const [error, setError] = useState<string | null>(null)
+    const [matchedReferral, setMatchedReferral] = useState<any>(null)
 
     const [influencers, setInfluencers] = useState<Influencer[]>([])
     const [selectedInfluencer, setSelectedInfluencer] = useState<string>("")
+
+
 
     useEffect(() => {
         getInfluencers().then(setInfluencers).catch(console.error)
@@ -51,6 +53,15 @@ export function VerificationUpload() {
 
             if (response.ok) {
                 setResult(data.data)
+
+                // Smart Matching: Check if this guest booked via referral
+                if (data.data.guestName) {
+                    const referral = await findReferral(data.data.guestName)
+                    if (referral) {
+                        setMatchedReferral(referral)
+                        setSelectedInfluencer(referral.influencerId)
+                    }
+                }
             } else {
                 setError(data.error || "Failed to analyze document.")
             }
@@ -98,16 +109,36 @@ export function VerificationUpload() {
                 {!result && (
                     <div className="space-y-2">
                         <Label>Attributed Influencer</Label>
-                        <Select value={selectedInfluencer} onValueChange={setSelectedInfluencer}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select influencer..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {influencers.map(inf => (
-                                    <SelectItem key={inf.id} value={inf.id}>{inf.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {matchedReferral ? (
+                            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-md flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="h-4 w-4 text-indigo-600" />
+                                    <span className="font-medium text-indigo-900">
+                                        {influencers.find(i => i.id === matchedReferral.influencerId)?.name || "Matching Influencer"}
+                                    </span>
+                                </div>
+                                <Badge variant="secondary" className="bg-indigo-200 text-indigo-800 hover:bg-indigo-200">
+                                    Smart Match
+                                </Badge>
+                            </div>
+                        ) : (
+                            <Select value={selectedInfluencer} onValueChange={setSelectedInfluencer}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select influencer..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {influencers.map(inf => (
+                                        <SelectItem key={inf.id} value={inf.id}>{inf.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        {matchedReferral && (
+                            <p className="text-xs text-indigo-600 flex items-center gap-1 mt-1">
+                                <Check className="h-3 w-3" />
+                                Matched booking for <strong>{matchedReferral.guestName}</strong>
+                            </p>
+                        )}
                     </div>
                 )}
 

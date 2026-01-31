@@ -12,6 +12,7 @@ export function InviteInfluencer() {
     const [email, setEmail] = useState("")
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
+    const [lastInviteLink, setLastInviteLink] = useState<string | null>(null)
 
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -19,10 +20,12 @@ export function InviteInfluencer() {
 
         setLoading(true)
         try {
-            await sendInvite("demo-restaurant", email)
+            const inviteId = await sendInvite("demo-restaurant", email)
+            const link = `${window.location.origin}/invite/${inviteId}`
+            setLastInviteLink(link)
             setSuccess(true)
             setEmail("")
-            setTimeout(() => setSuccess(false), 3000)
+            // setSuccess(false) // Keep it visible to show the link
         } catch (error) {
             console.error("Failed to send invite:", error)
             alert("Failed to send invite.")
@@ -55,9 +58,19 @@ export function InviteInfluencer() {
                         </div>
                     </div>
                     {success && (
-                        <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded-md">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>Invitation sent successfully!</span>
+                        <div className="space-y-2 text-sm text-green-600 bg-green-50 p-2 rounded-md transition-all">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Invitation sent!</span>
+                            </div>
+                            {lastInviteLink && (
+                                <div className="mt-2 p-2 bg-white rounded border border-green-200">
+                                    <p className="text-xs text-zinc-500 mb-1">Simulated Email Link (Click to test):</p>
+                                    <a href={lastInviteLink} target="_blank" className="font-mono text-xs text-primary underline break-all">
+                                        {lastInviteLink}
+                                    </a>
+                                </div>
+                            )}
                         </div>
                     )}
                 </CardContent>
