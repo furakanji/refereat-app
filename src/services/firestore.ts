@@ -144,3 +144,32 @@ export async function redeemCredits(influencerId: string, amount: number) {
         throw e;
     }
 }
+
+// --- Invitations ---
+
+export async function sendInvite(restaurantId: string, email: string) {
+    try {
+        const docRef = await addDoc(collection(db, "invitations"), {
+            restaurantId,
+            email,
+            status: "pending",
+            createdAt: Timestamp.now()
+        });
+        return docRef.id;
+    } catch (e) {
+        console.error("Error sending invite:", e);
+        throw e;
+    }
+}
+
+export async function getInvites(restaurantId: string) {
+    const q = query(
+        collection(db, "invitations"),
+        where("restaurantId", "==", restaurantId),
+        orderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+
