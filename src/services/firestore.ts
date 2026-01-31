@@ -172,4 +172,37 @@ export async function getInvites(restaurantId: string) {
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
+export async function getInvitation(id: string) {
+    const docRef = doc(db, "invitations", id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() };
+    }
+    return null;
+}
+
+export async function acceptInvite(inviteId: string, userData: { name: string, email: string }) {
+    try {
+        const influencerRef = await addDoc(collection(db, "influencers"), {
+            name: userData.name,
+            email: userData.email,
+            walletBalance: { available: 0, pending: 0, redeemed: 0 },
+            createdAt: Timestamp.now()
+        });
+
+        const inviteRef = doc(db, "invitations", inviteId);
+        await updateDoc(inviteRef, {
+            status: "accepted",
+            acceptedBy: influencerRef.id,
+            acceptedAt: Timestamp.now()
+        });
+
+        return influencerRef.id;
+    } catch (e) {
+        console.error("Error accepting invite:", e);
+        throw e;
+    }
+}
+
+
 
