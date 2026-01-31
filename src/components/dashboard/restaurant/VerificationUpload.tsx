@@ -1,17 +1,28 @@
 "use client"
 
-import { useState } from "react"
-import { Upload, FileText, Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Upload, FileText, Loader2, CheckCircle, AlertCircle, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { createBooking, getInfluencers } from "@/services/firestore"
+import type { Influencer } from "@/types/firestore"
 
 export function VerificationUpload() {
     const [file, setFile] = useState<File | null>(null)
     const [loading, setLoading] = useState(false)
+    const [analyzing, setAnalyzing] = useState(false)
     const [result, setResult] = useState<any>(null)
     const [error, setError] = useState<string | null>(null)
+
+    const [influencers, setInfluencers] = useState<Influencer[]>([])
+    const [selectedInfluencer, setSelectedInfluencer] = useState<string>("")
+
+    useEffect(() => {
+        getInfluencers().then(setInfluencers).catch(console.error)
+    }, [])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -21,10 +32,10 @@ export function VerificationUpload() {
         }
     }
 
-    const handleUpload = async () => {
+    const handleAnalyze = async () => {
         if (!file) return
 
-        setLoading(true)
+        setAnalyzing(true)
         setError(null)
 
         const formData = new FormData()
@@ -46,6 +57,32 @@ export function VerificationUpload() {
         } catch (err) {
             setError("An error occurred. Please try again.")
         } finally {
+            setAnalyzing(false)
+        }
+    }
+
+    const handleConfirm = async () => {
+        if (!result || !selectedInfluencer) return
+
+        setLoading(true)
+        try {
+            await createBooking({
+                restaurantId: "demo-restaurant", // Hardcoded for MVP
+                influencerId: selectedInfluencer,
+                guestName: result.guestName || "Unknown Guest",
+                bookingDate: result.bookingDate ? new Date(result.bookingDate) : new Date(),
+                covers: result.covers || 2, // Default to 2 if not found
+                totalSpend: result.totalSpend || 0,
+                proofImageUrl: "skipped-for-mvp" // We would upload to Storage here
+            })
+            alert("Booking confirmed and credits assigned!")
+            setFile(null)
+            setResult(null)
+            setSelectedInfluencer("")
+        } catch (e) {
+            console.error("Error creating booking:", e)
+            alert("Failed to create booking.")
+        } finally {
             setLoading(false)
         }
     }
@@ -57,9 +94,27 @@ export function VerificationUpload() {
                 <CardDescription>Upload a receipt or report to verify a booking.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                {/* Step 1: Select Influencer (MVP Attribution) */}
+                {!result && (
+                    <div className="space-y-2">
+                        <Label>Attributed Influencer</Label>
+                        <Select value={selectedInfluencer} onValueChange={setSelectedInfluencer}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select influencer..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {influencers.map(inf => (
+                                    <SelectItem key={inf.id} value={inf.id}>{inf.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+
+                {/* Step 2: Upload File */}
                 <div className="grid w-full items-center gap-1.5">
                     <Label htmlFor="picture">Receipt / Report Image</Label>
-                    <Input id="picture" type="file" accept="image/*" onChange={handleFileChange} />
+                    <Input id="picture" type="file" accept="image/*" onChange={handleFileChange} disabled={!selectedInfluencer} />
                 </div>
 
                 {file && (
@@ -85,29 +140,39 @@ export function VerificationUpload() {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>
                                 <span className="text-zinc-500 block">Guest Name</span>
-                                <span className="font-medium">{result.guestName || "N/A"}</span>
+                                <span className="font-medium text-zinc-900">{result.guestName || "N/A"}</span>
                             </div>
                             <div>
                                 <span className="text-zinc-500 block">Date</span>
-                                <span className="font-medium">{result.bookingDate ? new Date(result.bookingDate).toLocaleDateString() : "N/A"}</span>
+                                <span className="font-medium text-zinc-900">{result.bookingDate ? new Date(result.bookingDate).toLocaleDateString() : "N/A"}</span>
                             </div>
                             <div>
                                 <span className="text-zinc-500 block">Covers</span>
-                                <span className="font-medium">{result.covers || "N/A"}</span>
+                                <span className="font-medium text-zinc-900">{result.covers || "N/A"}</span>
                             </div>
                             <div>
                                 <span className="text-zinc-500 block">Total Spend</span>
-                                <span className="font-medium">{result.totalSpend ? `€${result.totalSpend}` : "N/A"}</span>
+                                <span className="font-medium text-zinc-900">{result.totalSpend ? `€${result.totalSpend}` : "N/A"}</span>
                             </div>
                         </div>
                     </div>
                 )}
             </CardContent>
             <CardFooter>
-                <Button onClick={handleUpload} disabled={!file || loading} className="w-full">
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {loading ? "Analyzing..." : "Analyze & Verify"}
-                </Button>
+                {!result ? (
+                    <Button onClick={handleAnalyze} disabled={!file || analyzing || !selectedInfluencer} className="w-full">
+                        {analyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {analyzing ? "Analyzing..." : "Analyze & Verify"}
+                    </Button>
+                ) : (
+                    <div className="flex gap-2 w-full">
+                        <Button variant="outline" onClick={() => setResult(null)} className="flex-1">Cancel</Button>
+                        <Button onClick={handleConfirm} disabled={loading} className="flex-1 bg-green-600 hover:bg-green-700">
+                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Confirm & Credit
+                        </Button>
+                    </div>
+                )}
             </CardFooter>
         </Card>
     )

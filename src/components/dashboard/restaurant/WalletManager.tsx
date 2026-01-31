@@ -1,33 +1,54 @@
 "use client"
 
-import { useState } from "react"
-import { Search, CreditCard, User } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Search, CreditCard, User, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-
-// Mock data for influencers who are currently checked in or have pending credits
-const initialInfluencers = [
-    { id: "1", name: "Chiara Ferragni", credits: 150, checkedIn: true, avatar: "" },
-    { id: "2", name: "Fedez", credits: 80, checkedIn: false, avatar: "" },
-    { id: "3", name: "Luis Sal", credits: 45, checkedIn: true, avatar: "" },
-]
+import { getInfluencers, redeemCredits } from "@/services/firestore"
+import type { Influencer } from "@/types/firestore"
 
 export function WalletManager() {
     const [searchTerm, setSearchTerm] = useState("")
-    const [influencers, setInfluencers] = useState(initialInfluencers)
+    const [influencers, setInfluencers] = useState<Influencer[]>([])
+    const [loading, setLoading] = useState(true)
+    const [redeeming, setRedeeming] = useState<string | null>(null)
+
+    useEffect(() => {
+        fetchInfluencers()
+    }, [])
+
+    const fetchInfluencers = async () => {
+        try {
+            const data = await getInfluencers()
+            setInfluencers(data)
+        } catch (error) {
+            console.error("Failed to fetch influencers:", error)
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const filteredInfluencers = influencers.filter((inf) =>
         inf.name.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
-    const handleRedeem = (id: string, amount: number) => {
-        // In a real app, this would call an API/Firestore transaction
-        alert(`Redeeming €${amount} for influencer ID: ${id}`)
-        setInfluencers(influencers.map(inf =>
-            inf.id === id ? { ...inf, credits: 0 } : inf
-        ))
+    const handleRedeem = async (id: string, amount: number) => {
+        if (!confirm(`Redeem €${amount} for this influencer?`)) return
+
+        setRedeeming(id)
+        try {
+            await redeemCredits(id, amount)
+            alert("Credits redeemed successfully!")
+            // Refresh list
+            await fetchInfluencers()
+        } catch (error) {
+            console.error("Redemption failed:", error)
+            alert("Failed to redeem credits. Check console.")
+        } finally {
+            setRedeeming(null)
+        }
     }
 
     return (
@@ -49,9 +70,13 @@ export function WalletManager() {
                 </div>
 
                 <div className="space-y-4 mt-4">
-                    {filteredInfluencers.length === 0 ? (
+                    {loading ? (
+                        <div className="flex justify-center p-8">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : filteredInfluencers.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
-                            No influencers found.
+                            {searchTerm ? "No influencers found matching your search." : "No influencers found."}
                         </div>
                     ) : (
                         filteredInfluencers.map((influencer) => (
@@ -61,16 +86,17 @@ export function WalletManager() {
                             >
                                 <div className="flex items-center gap-4">
                                     <Avatar>
-                                        <AvatarImage src={influencer.avatar} />
+                                        {/* Avatar Image not yet in schema, using fallback */}
                                         <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
                                     </Avatar>
                                     <div>
                                         <p className="font-medium leading-none">{influencer.name}</p>
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            {influencer.checkedIn ? (
-                                                <span className="text-green-600 flex items-center gap-1">● Checked In</span>
+                                            {/* Mocking Check-in status for now as it's not in schema */}
+                                            {influencer.walletBalance?.available > 0 ? (
+                                                <span className="text-green-600 flex items-center gap-1">● Active</span>
                                             ) : (
-                                                <span>Not in venue</span>
+                                                <span>No credits</span>
                                             )}
                                         </p>
                                     </div>
@@ -78,15 +104,19 @@ export function WalletManager() {
                                 <div className="flex items-center gap-4">
                                     <div className="text-right">
                                         <p className="text-sm text-muted-foreground">Available Credits</p>
-                                        <p className="font-bold text-lg">€{influencer.credits}</p>
+                                        <p className="font-bold text-lg">€{influencer.walletBalance?.available || 0}</p>
                                     </div>
                                     <Button
                                         size="sm"
-                                        variant={influencer.credits > 0 ? "default" : "secondary"}
-                                        disabled={influencer.credits === 0}
-                                        onClick={() => handleRedeem(influencer.id, influencer.credits)}
+                                        variant={influencer.walletBalance?.available > 0 ? "default" : "secondary"}
+                                        disabled={!influencer.walletBalance?.available || influencer.walletBalance.available <= 0 || redeeming === influencer.id}
+                                        onClick={() => handleRedeem(influencer.id, influencer.walletBalance.available)}
                                     >
-                                        <CreditCard className="mr-2 h-3.5 w-3.5" />
+                                        {redeeming === influencer.id ? (
+                                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                            <CreditCard className="mr-2 h-3.5 w-3.5" />
+                                        )}
                                         Redeem
                                     </Button>
                                 </div>
