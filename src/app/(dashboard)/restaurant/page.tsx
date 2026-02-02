@@ -1,3 +1,5 @@
+"use client"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AmbassadorManager } from "@/components/dashboard/restaurant/AmbassadorManager";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
