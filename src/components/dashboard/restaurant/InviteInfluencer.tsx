@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { sendInvite } from "@/services/firestore"
+import { useAuth } from "@/context/AuthContext"
 
 export function InviteInfluencer() {
+    const { user } = useAuth()
     const [email, setEmail] = useState("")
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
@@ -16,13 +18,24 @@ export function InviteInfluencer() {
 
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!email) return
+        if (!email || !user) return
 
         setLoading(true)
         try {
-            const inviteId = await sendInvite("demo-restaurant", email)
+            const inviteId = await sendInvite(user.uid, email)
             const link = `${window.location.origin}/invite/${inviteId}`
             setLastInviteLink(link)
+
+            // Send Email via Server Action/API
+            await fetch("/api/send-invite", {
+                method: "POST",
+                body: JSON.stringify({
+                    email,
+                    link,
+                    restaurantName: "Your Restaurant" // TODO: Fetch real name from context/props
+                })
+            })
+
             setSuccess(true)
             setEmail("")
             // setSuccess(false) // Keep it visible to show the link

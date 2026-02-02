@@ -6,15 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { getInvites } from "@/services/firestore"
 import { Loader2 } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
 
 export default function InvitePage() {
+    const { user } = useAuth()
     const [invites, setInvites] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        // Poll for updates or just fetch once for MVP
-        getInvites("demo-restaurant").then(setInvites).finally(() => setLoading(false))
-    }, [])
+        if (!user) return
+        getInvites(user.uid).then(setInvites).finally(() => setLoading(false))
+    }, [user])
 
     return (
         <div className="space-y-6">

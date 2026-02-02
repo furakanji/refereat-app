@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import { Loader2, Upload, FileText, CheckCircle, AlertCircle, User, Check, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -8,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { createBooking, getInfluencers, findReferral } from "@/services/firestore"
 import type { Influencer } from "@/types/firestore"
+import { useAuth } from "@/context/AuthContext"
 
 export function VerificationUpload() {
+    const { user } = useAuth()
     const [file, setFile] = useState<File | null>(null)
     const [loading, setLoading] = useState(false)
     const [analyzing, setAnalyzing] = useState(false)
@@ -73,12 +77,12 @@ export function VerificationUpload() {
     }
 
     const handleConfirm = async () => {
-        if (!result || !selectedInfluencer) return
+        if (!result || !selectedInfluencer || !user) return
 
         setLoading(true)
         try {
             await createBooking({
-                restaurantId: "demo-restaurant", // Hardcoded for MVP
+                restaurantId: user.uid, // Using real User ID
                 influencerId: selectedInfluencer,
                 guestName: result.guestName || "Unknown Guest",
                 bookingDate: result.bookingDate ? new Date(result.bookingDate) : new Date(),

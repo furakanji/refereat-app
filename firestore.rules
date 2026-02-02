@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to check if user is owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // RESTAURANTS: Only read/write if you are the owner
+    // "create" is special case during registration (allow if auth.uid matches doc id)
+    match /restaurants/{restaurantId} {
+      allow read: if true; // Public for now (so influencers can see restaurant details)
+      allow write: if isOwner(restaurantId);
+    }
+
+    // INFLUENCERS: Only read/write if you are the owner
+    match /influencers/{influencerId} {
+      allow read: if true; // Public for booking page (so guests can see influencer details)
+      allow write: if isOwner(influencerId);
+      // NOTE: For MVP, ambassadors are created by Restaurant. 
+      // So restaurant needs write access to influencers collection? 
+      // Actually, my code adds ambassadors to "influencers" collection.
+      // So authenticated restaurants need to differ.
+      // Let's keep it simple for MVP: authenticated users can create.
+      allow create: if isAuthenticated();
+    }
+
+    // BOOKINGS: 
+    match /bookings/{bookingId} {
+        allow read: if isAuthenticated(); // Broad for MVP
+        allow create: if isAuthenticated(); // Public booking (guests) might not be auth'd? 
+        // Guest booking is PUBLIC.
+        // So create should be allow if true? Or maybe specific rules.
+        // Let's allow public create for now.
+        allow create: if true; 
+        allow update: if isAuthenticated();
+    }
+
+    // INVITATIONS: Public read (for invite link), Restaurant write
+    match /invitations/{inviteId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+    }
+    
+    // CREDIT LOGS
+    match /credit_logs/{logId} {
+        allow read, write: if isAuthenticated();
+    }
+  }
+}

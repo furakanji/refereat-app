@@ -5,7 +5,9 @@ export interface Restaurant {
     name: string;
     email: string;
     address?: string;
+    logo?: string;
     createdAt: Date;
+    defaultCommissionPercentage?: number; // e.g. 10 for 10%
     // ROI Analytics can be computed or stored here
     totalCreditsSpent: number;
     totalRevenueGenerated: number;
@@ -16,6 +18,20 @@ export interface Influencer {
     name: string;
     email: string;
     createdAt: Date;
+    profilePicture?: string;
+    restaurantId?: string; // Links influencer to a specific restaurant program
+
+    // Ambassador Specifics
+    instagramHandle?: string;
+    tiktokHandle?: string;
+    commissionPercentage?: number; // Overrides restaurant default
+    blackoutDates?: Date[]; // Simplification: using Date[] instead of Timestamp[] for type definition, conversion happens in service
+
+    // Aggregate Stats
+    totalBookings?: number;
+    totalSpendGenerated?: number;
+    totalCreditsEarned?: number;
+
     walletBalance: {
         pending: number;
         available: number;
